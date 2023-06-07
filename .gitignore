@@ -1,5 +1,0 @@
-/corpus/*.jsonl
-/__pycache__
-/dataset
-/models
-/saved_model

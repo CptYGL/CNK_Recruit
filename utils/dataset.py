@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 # author:YGL
-# simple import
-import numpy as np
-import json,pickle
-import torch,re
-import torch.nn as nn
-#internal import
-from builder_vocab import load_vocab
-# import torch.nn.functional as F
-from torch.utils.data import Dataset,DataLoader
+
+import json, torch
+from torch.utils.data import Dataset
 
 bio = {'B':'1','I':'2'}
 tag = {"职责": '01', "专业": '02', "知识": '03', 
@@ -21,8 +15,9 @@ for i in bio:
 
 #CRF-BIO数据集类
 class CrfBIODataset(Dataset):
-    def __init__(self, ori_fname, word2i, label2i, max_len=100):
+    def __init__(self, ori_fname, word2i, label2i, max_len=100, save_dataset=False):
         self.max_len = max_len
+        self.save_dataset = save_dataset
         self.datas = self.read_data(ori_fname, word2i, label2i)
 
     def read_data(self, fname, word2i, label2i):
@@ -42,6 +37,9 @@ class CrfBIODataset(Dataset):
                     yil = yil[:self.max_len]
                     len(yil)
                 datas.append((torch.tensor(xil), torch.tensor(yil)))
+        if self.save_dataset:
+            with open('./dataset/NER_CRF_BIO_raw','wb')as f:
+                json.dump(datas, f)
         return datas
     
     def tag_align(self,line,w2i,l2i):
@@ -52,9 +50,9 @@ class CrfBIODataset(Dataset):
         tags = ['O']*len(text)
         for label in labels:
             #潜在隐患,无法排除嵌套
-            text[label[0]] = l2i[f'B-{label[2]}']
+            tags[label[0]] = f'B-{label[2]}'
             for i in range((label[1]-label[0])):
-                text[label[0]+i] = l2i[f'I-{label[2]}']
+                tags[label[0]+i+1] = f'I-{label[2]}'
         # print(tags)
         xil,yil = [],[]
         for xi,yi in zip(text,tags):
@@ -68,7 +66,23 @@ class CrfBIODataset(Dataset):
     def __getitem__(self, index):
         return self.datas[index]
     
-# 测试
+# GlobalPointer dataset部分
+class GPDataset(Dataset):
+    def __init__(self, fname):
+        self.fname = fname
+        self.data = self.read_data(fname)
+        self.length = len(self.data)
+    
+    def __getitem__(self, index):
+        return self.data[index]
+
+    def __len__(self):
+        return self.length
+            
+    
+# # 测试
+# word2i_fname = './corpus/word2i.vocab'
+# w2i, i2w = load_vocab(word2i_fname)
 # nerd = CrfBIODataset('./corpus/summary.jsonl', w2i, label2idx)
 # nerdl = DataLoader(nerd, batch_size=3, shuffle=False)
 # c = 0
@@ -77,9 +91,9 @@ class CrfBIODataset(Dataset):
 #     print(x)
 #     print(y.shape)
 #     print(y)
-#     #如果要用到mark，可以计算
+#     #如果要用到mask，可以计算
 #     mask = (x != 0)
 #     print(mask)
 #     c += 1
-#     if c == 1:
+#     if c == 3:
 #         break
